@@ -1,23 +1,80 @@
-# 1. The VPC Network
-resource "google_compute_network" "vpc_network" {
-  name                    = "ent-prod-vpc"
-  auto_create_subnetworks = false # Always set to false for Enterprise
+# --- 1. SETTINGS & VARIABLES ---
+locals {
+  project_id = student-00566
+  region     = "us-central1"
 }
 
-# 2. Public Subnet
+provider "google" {
+  project = local.project_id
+  region  = local.region
+}
+
+# --- 2. VPC NETWORK ---
+resource "google_compute_network" "vpc_network" {
+  name                    = "ent-prod-vpc"
+  auto_create_subnetworks = false
+}
+
+# --- 3. SUBNETS ---
+# Public Subnet (For Load Balancer)
 resource "google_compute_subnetwork" "public_subnet" {
   name          = "ent-prod-sub-pub-uscentral1"
   ip_cidr_range = "10.0.1.0/24"
-  region        = "us-central1"
+  region        = local.region
   network       = google_compute_network.vpc_network.id
 }
 
-# 3. Private Subnet
+# Private Subnet (For Web Servers & Database)
 resource "google_compute_subnetwork" "private_subnet" {
   name          = "ent-prod-sub-priv-uscentral1"
   ip_cidr_range = "10.0.2.0/24"
-  region        = "us-central1"
+  region        = local.region
   network       = google_compute_network.vpc_network.id
-  # Required for Private Google Access (Cloud SQL/APIs)
+  # Required to allow private VMs to reach Google APIs
   private_ip_google_access = true 
+}
+
+# --- 4. CLOUD ROUTER & NAT ---
+# Router handles the routing logic
+resource "google_compute_router" "router" {
+  name    = "ent-prod-router"
+  region  = local.region
+  network = google_compute_network.vpc_network.id
+}
+
+# NAT allows private VMs to access the internet (outbound)
+resource "google_compute_router_nat" "nat" {
+  name                               = "ent-prod-nat"
+  router                             = google_compute_router.router.name
+  region                             = local.region
+  nat_ip_allocate_option             = "AUTO_ONLY"
+  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+}
+
+# --- 5. FIREWALL RULES ---
+# Allow SSH via Identity-Aware Proxy (IAP)
+resource "google_compute_firewall" "allow_ssh" {
+  name    = "ent-prod-fw-allow-ssh"
+  network = google_compute_network.vpc_network.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["35.235.240.0/20"]
+}
+
+# Allow Load Balancer Health Checks
+resource "google_compute_firewall" "allow_hc" {
+  name    = "ent-prod-fw-allow-hc"
+  network = google_compute_network.vpc_network.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80"]
+  }
+
+  source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]
+}
 }
