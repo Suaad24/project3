@@ -1,7 +1,7 @@
 # Create a Service Account for the VMs (Security Best Practice)
 resource "google_service_account" "web_sa" {
   account_id   = "ent-prod-web-sa"
-  display_name = "Service Account for Web Servers"
+  
 }
 
 # The Virtual Machine Instances
@@ -20,7 +20,6 @@ resource "google_compute_instance" "web_servers" {
   network_interface {
     network    = google_compute_network.vpc_network.id
     subnetwork = google_compute_subnetwork.private_subnet.id
-    # Note: No 'access_config' block here = No Public IP
   }
 
   # Automatic Nginx Installation
