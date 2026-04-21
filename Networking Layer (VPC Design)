@@ -1,0 +1,23 @@
+# 1. The VPC Network
+resource "google_compute_network" "vpc_network" {
+  name                    = "ent-prod-vpc"
+  auto_create_subnetworks = false # Always set to false for Enterprise
+}
+
+# 2. Public Subnet
+resource "google_compute_subnetwork" "public_subnet" {
+  name          = "ent-prod-sub-pub-uscentral1"
+  ip_cidr_range = "10.0.1.0/24"
+  region        = "us-central1"
+  network       = google_compute_network.vpc_network.id
+}
+
+# 3. Private Subnet
+resource "google_compute_subnetwork" "private_subnet" {
+  name          = "ent-prod-sub-priv-uscentral1"
+  ip_cidr_range = "10.0.2.0/24"
+  region        = "us-central1"
+  network       = google_compute_network.vpc_network.id
+  # Required for Private Google Access (Cloud SQL/APIs)
+  private_ip_google_access = true 
+}
