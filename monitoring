@@ -1,0 +1,30 @@
+# 1. Create a Notification Channel (Email)
+resource "google_monitoring_notification_channel" "email_me" {
+  display_name = "Admin Email Channel"
+  type         = "email"
+  labels = {
+    email_address = "your-email@example.com" # Change to your email
+  }
+}
+
+# 2. Create the Alert Policy
+resource "google_monitoring_alert_policy" "cpu_alert_policy" {
+  display_name = "High CPU Usage Alert"
+  combiner     = "OR"
+  conditions {
+    display_name = "CPU usage is above 50% for 1 minute"
+    condition_threshold {
+      filter          = "metric.type=\"compute.googleapis.com/instance/cpu/usage_time\" resource.type=\"gce_instance\""
+      duration        = "60s"
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0.5
+      
+      aggregations {
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_MEAN"
+      }
+    }
+  }
+
+  notification_channels = [google_monitoring_notification_channel.email_me.name]
+}
